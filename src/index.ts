@@ -2,9 +2,55 @@ import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mc
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import axios from 'axios';
-import { MARKETO_BASE_URL, MARKETO_CLIENT_ID, MARKETO_CLIENT_SECRET } from './constants.js';
+import {
+  MARKETO_BASE_URL,
+  MARKETO_CLIENT_ID,
+  MARKETO_CLIENT_SECRET,
+  API_REQUEST_TIMEOUT,
+} from './constants.js';
 import { TokenManager } from './auth.js';
 import 'dotenv/config';
+
+/**
+ * Sanitizes error messages to prevent leaking sensitive information
+ */
+function sanitizeErrorMessage(error: any): string {
+  // Don't expose raw API responses which may contain sensitive data
+  if (error.response?.status) {
+    const status = error.response.status;
+    const statusText = error.response.statusText || 'Unknown error';
+
+    // Provide generic messages for common error codes
+    switch (status) {
+      case 401:
+        return 'Authentication failed. Please check your Marketo credentials.';
+      case 403:
+        return 'Access denied. Insufficient permissions for this operation.';
+      case 404:
+        return 'Resource not found.';
+      case 429:
+        return 'Rate limit exceeded. Please try again later.';
+      case 500:
+      case 502:
+      case 503:
+        return 'Marketo service temporarily unavailable. Please try again later.';
+      default:
+        return `Request failed with status ${status}: ${statusText}`;
+    }
+  }
+
+  // For network errors, provide a generic message
+  if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+    return 'Unable to connect to Marketo. Please check your network connection and MARKETO_BASE_URL.';
+  }
+
+  if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+    return 'Request timed out. Please try again.';
+  }
+
+  // Fallback to a generic error message
+  return 'An error occurred while processing your request.';
+}
 
 if (!MARKETO_CLIENT_ID || !MARKETO_CLIENT_SECRET) {
   throw new Error('MARKETO_CLIENT_ID and MARKETO_CLIENT_SECRET environment variables are required');
@@ -26,7 +72,7 @@ async function makeApiRequest(
   contentType: string = 'application/json'
 ) {
   const token = await tokenManager.getToken();
-  const headers: any = {
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
   };
 
@@ -43,10 +89,12 @@ async function makeApiRequest(
           ? new URLSearchParams(data).toString()
           : data,
       headers,
+      timeout: API_REQUEST_TIMEOUT,
     });
     return response.data;
   } catch (error: any) {
-    console.error('API request failed:', error.response?.data || error.message);
+    // Log minimal info for debugging (avoid logging sensitive data)
+    console.error(`API request failed: ${method} ${endpoint} - ${error.code || error.message}`);
     throw error;
   }
 }
@@ -79,7 +127,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -108,7 +156,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -146,7 +194,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -170,7 +218,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -200,7 +248,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -224,7 +272,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -254,7 +302,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -278,7 +326,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -312,7 +360,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -347,7 +395,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -371,7 +419,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -404,7 +452,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -426,8 +474,10 @@ server.tool(
         params.append('fields', fields.join(','));
       }
 
+      // URL-encode the email to handle special characters safely
+      const encodedEmail = encodeURIComponent(email);
       const response = await makeApiRequest(
-        `/rest/v1/lead/${email}.json${params.toString() ? `?${params.toString()}` : ''}`,
+        `/rest/v1/lead/${encodedEmail}.json${params.toString() ? `?${params.toString()}` : ''}`,
         'GET'
       );
 
@@ -436,9 +486,7 @@ server.tool(
       };
     } catch (error: any) {
       return {
-        content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
-        ],
+        content: [{ type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` }],
       };
     }
   }
@@ -485,7 +533,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -509,7 +557,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -550,7 +598,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -591,7 +639,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -628,7 +676,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -657,7 +705,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
@@ -690,7 +738,7 @@ server.tool(
     } catch (error: any) {
       return {
         content: [
-          { type: 'text', text: `Error: ${error.response?.data?.message || error.message}` },
+          { type: 'text', text: `Error: ${sanitizeErrorMessage(error)}` },
         ],
       };
     }
